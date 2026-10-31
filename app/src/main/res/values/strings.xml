@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Recul</string>
+    <string name="a11y_label">Recul · Bloqueur</string>
+    <string name="a11y_description">Recul détecte l\'app ouverte pour appliquer tes limites et tes verrous. Rien n\'est lu ni envoyé : seul le nom de l\'app est utilisé.</string>
+</resources>
