@@ -19,28 +19,34 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.niakimbo.recul.ui.C
+import fr.niakimbo.recul.ui.CodeEditScreen
 import fr.niakimbo.recul.ui.EditScreen
 import fr.niakimbo.recul.ui.Glow
-import fr.niakimbo.recul.ui.HomeScreen
 import fr.niakimbo.recul.ui.PickScreen
 import fr.niakimbo.recul.ui.PinPad
 import fr.niakimbo.recul.ui.ReculTheme
 import fr.niakimbo.recul.ui.SettingsScreen
-import fr.niakimbo.recul.ui.StatsScreen
+import fr.niakimbo.recul.ui.Tab
+import fr.niakimbo.recul.ui.TabsScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 sealed interface Screen {
-    data object Home : Screen
-    data object Pick : Screen
+    data class Tabs(val tab: Tab) : Screen
+    data class Pick(val forCodes: Boolean) : Screen
     data class Edit(val pkg: String) : Screen
-    data object Stats : Screen
+    data class CodeEdit(val pkg: String, val label: String) : Screen
     data object Settings : Screen
 }
 
@@ -55,35 +61,40 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ReculTheme {
-                var screen by androidx.compose.runtime.remember { mutableStateOf<Screen>(Screen.Home) }
-                val go: (Screen) -> Unit = { screen = it }
-                BackHandler(screen != Screen.Home) {
-                    screen = when (val s = screen) {
-                        is Screen.Edit -> Screen.Home
-                        else -> Screen.Home.also { if (s == Screen.Home) finish() }
-                    }
-                }
+                var screen by remember { mutableStateOf<Screen>(Screen.Tabs(Tab.Limits)) }
+                var lastTab by remember { mutableStateOf(Tab.Limits) }
+                val go: (Screen) -> Unit = { s -> if (s is Screen.Tabs) lastTab = s.tab; screen = s }
+                BackHandler(screen !is Screen.Tabs) { screen = Screen.Tabs(lastTab) }
                 Box(Modifier.fillMaxSize().background(C.Bg).safeDrawingPadding()) {
                     if (Rules.masterHash != null && !unlocked) {
                         MasterLock { unlocked = true }
                     } else {
                         AnimatedContent(
                             screen,
+                            contentKey = { if (it is Screen.Tabs) "tabs" else it.toString() },
                             transitionSpec = {
-                                val forward = targetState != Screen.Home
-                                (slideInHorizontally(tween(320)) { if (forward) it / 4 else -it / 4 } + fadeIn(tween(320))) togetherWith
-                                    (slideOutHorizontally(tween(260)) { if (forward) -it / 4 else it / 4 } + fadeOut(tween(200)))
+                                val forward = targetState !is Screen.Tabs
+                                (slideInHorizontally(tween(300)) { if (forward) it / 5 else -it / 5 } + fadeIn(tween(300))) togetherWith
+                                    (slideOutHorizontally(tween(240)) { if (forward) -it / 5 else it / 5 } + fadeOut(tween(180)))
                             },
                             label = "nav",
                         ) { s ->
                             when (s) {
-                                Screen.Home -> HomeScreen(resumeTick, go)
-                                Screen.Pick -> PickScreen(go)
+                                is Screen.Tabs -> TabsScreen(s.tab, resumeTick, go)
+                                is Screen.Pick -> PickScreen(s.forCodes, go)
                                 is Screen.Edit -> EditScreen(s.pkg, go)
-                                Screen.Stats -> StatsScreen(resumeTick, go)
+                                is Screen.CodeEdit -> CodeEditScreen(s.pkg, s.label, go)
                                 Screen.Settings -> SettingsScreen(resumeTick, go)
                             }
                         }
+                    }
+                }
+                val scope = rememberCoroutineScope()
+                androidx.compose.runtime.LaunchedEffect(resumeTick) {
+                    // Mise à jour auto : vérifie au plus toutes les heures quand Recul est ouvert.
+                    if (System.currentTimeMillis() - Rules.lastUpdateCheck > 3_600_000L) {
+                        Rules.lastUpdateCheck = System.currentTimeMillis()
+                        scope.launch(Dispatchers.IO) { AutoUpdate.run(applicationContext) }
                     }
                 }
             }
@@ -92,16 +103,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        visible = true
         resumeTick++
+        AutoUpdate.pendingConfirm?.let { AutoUpdate.pendingConfirm = null; runCatching { startActivity(it) } }
+    }
+
+    override fun onPause() {
+        visible = false
+        super.onPause()
     }
 
     override fun onStop() {
         super.onStop()
         unlocked = false
     }
+
+    companion object {
+        @Volatile var visible = false
+    }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun MasterLock(onOk: () -> Unit) {
     Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(40.dp))

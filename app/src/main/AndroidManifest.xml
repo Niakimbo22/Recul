@@ -59,6 +59,10 @@
                 android:resource="@xml/accessibility_config" />
         </service>
 
+        <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

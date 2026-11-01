@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -150,13 +151,13 @@ fun Glow(modifier: Modifier = Modifier, size: Dp = 220.dp) {
 
 /** Exercice de respiration : [cycles] × (inspire 4 s, expire 5 s). */
 @Composable
-fun BreathExercise(cycles: Int = 3, onDone: () -> Unit) {
-    val scale = remember { Animatable(0.45f) }
-    var phase by remember { mutableStateOf("Prêt ?") }
-    var left by remember { mutableIntStateOf(cycles) }
+fun BreathExercise(cycles: Int = 3, key: Any = Unit, size: Dp = 240.dp, onDone: () -> Unit) {
+    val scale = remember(key) { Animatable(0.45f) }
+    var phase by remember(key) { mutableStateOf("Prêt ?") }
+    var left by remember(key) { mutableIntStateOf(cycles) }
     val haptic = LocalHapticFeedback.current
-    LaunchedEffect(Unit) {
-        delay(600)
+    LaunchedEffect(key) {
+        delay(400)
         repeat(cycles) {
             phase = "Inspire"; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             scale.animateTo(1f, tween(4000, easing = FastOutSlowInEasing))
@@ -168,9 +169,9 @@ fun BreathExercise(cycles: Int = 3, onDone: () -> Unit) {
         onDone()
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val r = size.minDimension / 2
+                val r = this.size.minDimension / 2
                 drawCircle(C.Line, r, style = Stroke(1.5.dp.toPx()))
                 drawCircle(Brush.radialGradient(listOf(C.Amber.copy(alpha = 0.35f), Color.Transparent), radius = r * scale.value * 1.2f), r * scale.value * 1.2f)
                 drawCircle(C.Amber.copy(alpha = 0.9f), r * scale.value * 0.62f)
@@ -184,23 +185,25 @@ fun BreathExercise(cycles: Int = 3, onDone: () -> Unit) {
 
 /** Compte à rebours en anneau. */
 @Composable
-fun WaitRing(seconds: Int, onDone: () -> Unit) {
-    val progress = remember { Animatable(0f) }
-    var remaining by remember { mutableIntStateOf(seconds) }
-    LaunchedEffect(Unit) {
-        launch { progress.animateTo(1f, tween(seconds * 1000, easing = LinearEasing)) }
-        while (remaining > 0) { delay(1000); remaining-- }
+fun WaitRing(seconds: Int, key: Any = Unit, size: Dp = 220.dp, onDone: () -> Unit) {
+    // Basé sur l'horloge : le temps continue de passer même si l'écran est caché un instant.
+    val endAt = remember(key) { android.os.SystemClock.elapsedRealtime() + seconds * 1000L }
+    var now by remember(key) { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
+    LaunchedEffect(key) {
+        while (now < endAt) { delay(33); now = android.os.SystemClock.elapsedRealtime() }
         onDone()
     }
-    Box(Modifier.size(240.dp), contentAlignment = Alignment.Center) {
+    val leftMs = (endAt - now).coerceAtLeast(0)
+    val progress = 1f - leftMs / (seconds * 1000f)
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize().padding(8.dp)) {
             val w = 6.dp.toPx()
             drawArc(C.Surface2, 0f, 360f, false, style = Stroke(w))
-            drawArc(C.Amber, -90f, 360f * progress.value, false, style = Stroke(w, cap = StrokeCap.Round))
+            drawArc(C.Amber, -90f, 360f * progress, false, style = Stroke(w, cap = StrokeCap.Round))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$remaining", style = T.Hero)
-            Text("secondes", style = T.Small)
+            Text(if (leftMs == 0L) "✓" else "${(leftMs + 999) / 1000}", style = T.Hero)
+            Text(if (leftMs == 0L) "c'est bon" else "secondes", style = T.Small)
         }
     }
 }

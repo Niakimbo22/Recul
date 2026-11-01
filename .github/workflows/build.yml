@@ -12,10 +12,12 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    env:
-      RECUL_VERSION_CODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
+
+      # +10 : les versions 1 à 3 ont été installées à la main.
+      - name: Numéro de version
+        run: echo "RECUL_VERSION_CODE=$(( ${{ github.run_number }} + 10 ))" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
@@ -48,7 +50,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Recul-0.1.${{ github.run_number }}
+          name: Recul-0.1.${{ env.RECUL_VERSION_CODE }}
           path: Recul-*.apk
 
       - name: Publier la Release
