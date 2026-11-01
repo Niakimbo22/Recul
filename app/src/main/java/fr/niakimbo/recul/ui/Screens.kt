@@ -119,7 +119,10 @@ fun HomeScreen(tick: Int, go: (Screen) -> Unit) {
                 RoundIcon(Icons.Outlined.Settings) { go(Screen.Settings) }
             }
 
-            if (!hasUsage || !hasA11y) {
+            if (!hasBlockerService(ctx)) {
+                Spacer(Modifier.height(20.dp))
+                InstallFullCard()
+            } else if (!hasUsage || !hasA11y) {
                 Spacer(Modifier.height(20.dp))
                 SetupCard(hasUsage, hasA11y)
             }
@@ -588,6 +591,12 @@ fun SettingsScreen(tick: Int, go: (Screen) -> Unit) {
                         }
                     }
                 }
+            }
+
+            Section("Installer un APK") {
+                Text("Choisis un fichier Recul téléchargé : c'est Recul qui l'installe.", style = T.Small)
+                Spacer(Modifier.height(12.dp))
+                InstallApkButton("Choisir le fichier", primary = false)
             }
 
             Section("Accès") {
