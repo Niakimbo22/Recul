@@ -68,7 +68,7 @@ class BlockActivity : ComponentActivity() {
             ReculTheme {
                 val label = Rules.get(pkg)?.label ?: Locks.get(pkg)?.label ?: ""
                 if (label.isEmpty()) { finishAndRemoveTask(); return@ReculTheme }
-                Block(pkg, label, reason, session, onLeave = ::leave, onPass = ::pass)
+                Block(pkg, label, reason, session, onLeave = ::leave, onPass = ::pass, onPassFor = ::passFor)
             }
         }
     }
@@ -103,6 +103,16 @@ class BlockActivity : ComponentActivity() {
     private fun pass(grace: Boolean) {
         if (grace) Rules.useGrace(pkg)
         Gate.grant(pkg)
+        openApp()
+    }
+
+    /** Accès accordé par l'IA pour [minutes] : ensuite Recul rebloque. */
+    private fun passFor(minutes: Int) {
+        Gate.grantFor(pkg, minutes * 60_000L)
+        openApp()
+    }
+
+    private fun openApp() {
         showing = null
         // On ouvre vraiment l'app (sinon Android peut revenir à l'accueil).
         packageManager.getLaunchIntentForPackage(pkg)?.let {
@@ -131,7 +141,7 @@ class BlockActivity : ComponentActivity() {
 private val INTENTIONS = listOf("💬 Un message", "🎯 Un truc précis", "🌀 Juste scroller")
 
 @Composable
-private fun Block(pkg: String, label: String, reason: Int, session: Int, onLeave: () -> Unit, onPass: (grace: Boolean) -> Unit) {
+private fun Block(pkg: String, label: String, reason: Int, session: Int, onLeave: () -> Unit, onPass: (grace: Boolean) -> Unit, onPassFor: (Int) -> Unit) {
     val ctx = LocalContext.current
     val rule = Rules.get(pkg)
 
@@ -155,7 +165,8 @@ private fun Block(pkg: String, label: String, reason: Int, session: Int, onLeave
                 }
 
                 BlockActivity.REASON_PAUSE -> if (rule != null) {
-                    PauseFlow(rule, session, onLeave) { onPass(false) }
+                    if (rule.method == Method.AI) AiFlow(rule, session, forGrace = false, onLeave = onLeave, onAllow = onPassFor)
+                    else PauseFlow(rule, session, onLeave) { onPass(false) }
                 }
 
                 BlockActivity.REASON_LIMIT -> if (rule != null) {
@@ -176,7 +187,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.PauseFlow(rule: AppRu
     Spacer(Modifier.weight(0.6f))
     Box(contentAlignment = Alignment.Center) {
         when (rule.method) {
-            Method.WAIT -> WaitRing(rule.waitSec, key = session) { done = true }
+            Method.WAIT, Method.AI -> WaitRing(rule.waitSec, key = session) { done = true }
             Method.BREATH -> BreathExercise(rule.breaths, key = session) { done = true }
         }
     }
@@ -248,11 +259,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.LimitFlow(rule: AppRu
                     }
                     Spacer(Modifier.height(20.dp))
                 }
-                LimitStage.Challenge -> {
+                LimitStage.Challenge -> if (rule.method == Method.AI) {
+                    AiFlow(rule, session, forGrace = true, onLeave = onLeave, onAllow = { onGrace() })
+                } else {
                     Spacer(Modifier.weight(1f))
                     when (rule.method) {
-                        Method.WAIT -> WaitRing(rule.waitSec, key = session) { done = true }
                         Method.BREATH -> BreathExercise(rule.breaths, key = session) { done = true }
+                        else -> WaitRing(rule.waitSec, key = session) { done = true }
                     }
                     Spacer(Modifier.weight(1f))
                     PillButton("Je ferme", Modifier.fillMaxWidth(), onClick = onLeave)

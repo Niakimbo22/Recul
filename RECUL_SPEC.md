@@ -7,7 +7,7 @@ App Android perso (Nico + 1-2 amis), installée par APK. Bloque ou freine certai
 - Textes courts. Le détail est caché.
 - Rien ne sort du téléphone : seul le nom de l'app ouverte est utilisé.
 
-## Fonctions (v0.1.4)
+## Fonctions (v0.1.5)
 | Onglet | Quoi |
 |---|---|
 | Limites | Par app : pause à l'ouverture (Attente 2-60 s, défaut 5 s, ou 1-5 respirations) + limite/jour (5 min → 4 h) ; fin = « +5 min » (1-5/jour) ou « fini jusqu'à demain » |
@@ -22,8 +22,15 @@ Mise à jour auto : Recul vérifie la dernière Release (toutes les 6 h via le s
 
 Bug corrigé (v0.1.4) : l'app bloquée (ex. TikTok qui finit de se lancer) repassait devant l'écran de pause → Recul relançait l'écran et le compte à rebours repartait de zéro. Maintenant l'écran est juste remis devant, le temps est calculé sur l'horloge et continue.
 
+## IA « videur » (v0.1.5)
+- 3e méthode de pause par app : **IA** (Gemini, clé gratuite collée dans Réglages, jamais dans le dépôt).
+- Conversation texte d'1 min max, 3 réponses max. Ton froid, sec, sans jugement.
+- À la fin l'IA décide : **entrer pour N min** (2-15, selon la raison ; ensuite Recul rebloque) ou **non** (réessai dans 5 min).
+- Contexte envoyé : nom de l'app, heure, temps passé aujourd'hui, limite, n° de tentative. Rien d'autre.
+- Pas de clé / pas de réseau / quota → repli sur l'attente classique.
+- Limite atteinte + méthode IA : l'IA décide des +5 min.
+
 ## Plus tard
-- Mode IA gratuite : « tu viens faire quoi sur TikTok ? » avant d'ouvrir.
 - Empêcher la désinstallation (Device Admin).
 
 ## Technique

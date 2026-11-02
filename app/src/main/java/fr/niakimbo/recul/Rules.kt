@@ -16,11 +16,12 @@ class ReculApp : Application() {
         super.onCreate()
         Rules.init(this)
         Locks.init(this)
+        Ai.init(this)
     }
 }
 
 /** Ce qu'il faut faire pour passer une pause (ou gagner +5 min). */
-enum class Method(val label: String) { BREATH("Respiration"), WAIT("Attente") }
+enum class Method(val label: String) { WAIT("Attente"), BREATH("Respiration"), AI("IA") }
 
 const val WAIT_MIN = 2
 const val WAIT_MAX = 60

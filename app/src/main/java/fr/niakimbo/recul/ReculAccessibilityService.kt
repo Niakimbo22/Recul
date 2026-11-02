@@ -23,6 +23,8 @@ object Gate {
         private set
     private val granted = HashSet<String>()
     private val leftAt = HashMap<String, Long>()
+    /** Accès accordé par l'IA pour une durée précise (fin = elapsedRealtime). */
+    private val until = HashMap<String, Long>()
 
     @Synchronized fun onForeground(pkg: String) {
         val prev = current
@@ -33,9 +35,25 @@ object Gate {
     @Synchronized fun grant(pkg: String) {
         granted.add(pkg)
         leftAt.remove(pkg)
+        until.remove(pkg)
+    }
+
+    @Synchronized fun grantFor(pkg: String, ms: Long) {
+        until[pkg] = SystemClock.elapsedRealtime() + ms
+        granted.remove(pkg); leftAt.remove(pkg)
+    }
+
+    /** Vrai si un accès à durée limitée vient d'expirer (→ on rebloque). */
+    @Synchronized fun timedExpired(pkg: String): Boolean {
+        val end = until[pkg] ?: return false
+        return SystemClock.elapsedRealtime() >= end
     }
 
     @Synchronized fun isOpen(pkg: String): Boolean {
+        until[pkg]?.let { end ->
+            if (SystemClock.elapsedRealtime() < end) return true
+            until.remove(pkg); return false
+        }
         if (pkg !in granted) return false
         val left = leftAt[pkg] ?: return true
         if (SystemClock.elapsedRealtime() - left < RELOCK_MS) { leftAt.remove(pkg); return true }
@@ -55,7 +73,7 @@ class ReculAccessibilityService : AccessibilityService() {
     private val tick = object : Runnable {
         override fun run() {
             // Limite atteinte pendant qu'on est dans l'app.
-            Gate.current?.let { pkg -> if (Rules.get(pkg)?.hasLimit == true) evaluate(pkg) }
+            Gate.current?.let { pkg -> if (Rules.get(pkg)?.hasLimit == true || Gate.timedExpired(pkg)) evaluate(pkg) }
             // Mise à jour auto, au plus toutes les 6 h.
             if (System.currentTimeMillis() - Rules.lastUpdateCheck > 6 * 3_600_000L) {
                 Rules.lastUpdateCheck = System.currentTimeMillis()

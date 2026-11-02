@@ -35,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -241,8 +242,11 @@ private fun AppRow(r: AppRule, usedMs: Long, onClick: () -> Unit) {
                         style = T.Small.copy(color = if (over) C.Over else C.Muted),
                     )
                 }
-                if (r.pauseOnOpen) Badge(if (r.method == Method.BREATH) Icons.Outlined.Air else Icons.Outlined.HourglassEmpty,
-                    if (r.method == Method.WAIT) "${r.waitSec}s" else null)
+                if (r.pauseOnOpen) when (r.method) {
+                    Method.BREATH -> Badge(Icons.Outlined.Air)
+                    Method.WAIT -> Badge(Icons.Outlined.HourglassEmpty, "${r.waitSec}s")
+                    Method.AI -> Badge(Icons.Outlined.AutoAwesome, "IA")
+                }
                 if (r.hasLimit && r.strict) Badge(Icons.Outlined.Nightlight)
                 if (Locks.get(r.pkg) != null) Badge(Icons.Outlined.Lock)
             }
@@ -507,6 +511,16 @@ fun EditScreen(pkg: String, go: (Screen) -> Unit) {
                                 }
                                 Stepper(rule.breaths, 1..5) { n -> update { it.copy(breaths = n) } }
                             }
+                            Method.AI -> Column {
+                                Text("1 min de discussion. L'IA décide si tu entres, et pour combien de temps.", style = T.Body)
+                                Spacer(Modifier.height(6.dp))
+                                Text("Refusé → réessai possible dans 5 min.", style = T.Small)
+                                if (!fr.niakimbo.recul.Ai.ready) {
+                                    Spacer(Modifier.height(10.dp))
+                                    Text("⚠️ Ajoute ta clé IA dans Réglages", style = T.Small.copy(color = C.Amber),
+                                        modifier = Modifier.clickable { go(Screen.Settings) })
+                                }
+                            }
                         }
                     }
                 }
@@ -756,6 +770,8 @@ fun SettingsScreen(tick: Int, go: (Screen) -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 InstallApkButton("Installer un fichier APK", primary = false)
             }
+
+            Section("IA") { AiSettings() }
 
             Section("Accès") {
                 AccessRow("Temps d'utilisation", hasUsage) {
