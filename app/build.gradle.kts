@@ -19,17 +19,14 @@ android {
         versionName = "0.1.$reculVersionCode"
     }
 
+    // Clé de signature fournie par la CI (secrets) ou en local ; sinon clé de debug.
+    val ks = System.getenv("RECUL_KEYSTORE")?.let { file(it) }?.takeIf { it.length() > 0 }
     signingConfigs {
-        create("release") {
-            val ks = System.getenv("RECUL_KEYSTORE")
-            if (ks != null && file(ks).length() > 0) {
-                storeFile = file(ks)
-                storePassword = System.getenv("RECUL_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("RECUL_KEY_ALIAS")
-                keyPassword = System.getenv("RECUL_KEY_PASSWORD")
-            } else {
-                initWith(getByName("debug"))
-            }
+        if (ks != null) create("release") {
+            storeFile = ks
+            storePassword = System.getenv("RECUL_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("RECUL_KEY_ALIAS")
+            keyPassword = System.getenv("RECUL_KEY_PASSWORD")
         }
     }
 
@@ -38,7 +35,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName(if (ks != null) "release" else "debug")
         }
     }
 
